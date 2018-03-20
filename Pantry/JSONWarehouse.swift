@@ -128,6 +128,7 @@ open class JSONWarehouse: Warehouseable, WarehouseCacheable {
         }
     }
     
+    // When removing cache, try new and legacy cache directories
     func removeCache() {
         do {
             try FileManager.default.removeItem(at: cacheFileURL())
@@ -137,6 +138,7 @@ open class JSONWarehouse: Warehouseable, WarehouseCacheable {
         }
     }
     
+    // When removing cache, try new and legacy cache directories
     static func removeAllCache() {
         do {
             try FileManager.default.removeItem(at: JSONWarehouse.cacheDirectory)
@@ -150,9 +152,11 @@ open class JSONWarehouse: Warehouseable, WarehouseCacheable {
         guard context == nil else {
             return context
         }
+        // First, try load cache from new cacheDirectory
         if let cache = loadCache(useLegacy: false) {
             return cache
         }
+        // Otherwise, try load cache from legacy cacheDirectory
         return loadCache(useLegacy: true)
     }
     
@@ -173,9 +177,11 @@ open class JSONWarehouse: Warehouseable, WarehouseCacheable {
     }
     
     func cacheExists() -> Bool {
+        // First, check if cache exists from new cacheDirectory
         if cacheExists(useLegacy: false) {
             return true
         }
+        // Since cache doesn't exist from new cacheDirectory, check legacy
         return cacheExists(useLegacy: true)
     }
     
@@ -208,6 +214,7 @@ open class JSONWarehouse: Warehouseable, WarehouseCacheable {
         return writeDirectory
     }
     
+    // Adding this legacyCacheDirectory for the older search directory path
     static var legacyCacheDirectory: URL {
         let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
         
@@ -216,6 +223,7 @@ open class JSONWarehouse: Warehouseable, WarehouseCacheable {
     }
     
     func cacheFileURL(_ useLegacy: Bool = false) -> URL {
+        // Get new or legacy cache directory based on the useLegacy flag
         let cacheDirectory = useLegacy ? JSONWarehouse.legacyCacheDirectory : JSONWarehouse.cacheDirectory
 
         let cacheLocation = cacheDirectory.appendingPathComponent(self.key)
