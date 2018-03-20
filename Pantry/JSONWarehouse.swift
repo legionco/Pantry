@@ -131,6 +131,7 @@ open class JSONWarehouse: Warehouseable, WarehouseCacheable {
     func removeCache() {
         do {
             try FileManager.default.removeItem(at: cacheFileURL())
+            try FileManager.default.removeItem(at: cacheFileURL(true))
         } catch {
             print("error removing cache", error)
         }
@@ -139,6 +140,7 @@ open class JSONWarehouse: Warehouseable, WarehouseCacheable {
     static func removeAllCache() {
         do {
             try FileManager.default.removeItem(at: JSONWarehouse.cacheDirectory)
+            try FileManager.default.removeItem(at: JSONWarehouse.legacyCacheDirectory)
         } catch {
             print("error removing all cache",error)
         }
@@ -148,36 +150,47 @@ open class JSONWarehouse: Warehouseable, WarehouseCacheable {
         guard context == nil else {
             return context
         }
-
-        let cacheLocation = cacheFileURL()
-
+        if let cache = loadCache(useLegacy: false) {
+            return cache
+        }
+        return loadCache(useLegacy: true)
+    }
+    
+    func loadCache(useLegacy: Bool) -> Any? {
+        
+        let cacheLocation = cacheFileURL(useLegacy)
         if let data = try? Data(contentsOf: cacheLocation),
             let metaDictionary = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let cache = metaDictionary?["storage"] {
             return cache
         }
-
         if let data = try? Data(contentsOf: cacheLocation),
-        let metaDictionary = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let metaDictionary = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let cache = metaDictionary?["storage"] {
             return cache
         }
-
         return nil
     }
     
     func cacheExists() -> Bool {
-        guard FileManager.default.fileExists(atPath: cacheFileURL().path),
-            let data = try? Data(contentsOf: cacheFileURL()),
+        if cacheExists(useLegacy: false) {
+            return true
+        }
+        return cacheExists(useLegacy: true)
+    }
+    
+    func cacheExists(useLegacy: Bool) -> Bool {
+        guard FileManager.default.fileExists(atPath: cacheFileURL(useLegacy).path),
+            let data = try? Data(contentsOf: cacheFileURL(useLegacy)),
             let metaDictionary = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 return false
         }
-
+        
         guard let expires = metaDictionary?["expires"] as? TimeInterval else {
             // no expire time means old cache, never expires
             return true
         }
-
+        
         let nowInterval = Date().timeIntervalSince1970
         
         if expires > nowInterval {
@@ -195,8 +208,15 @@ open class JSONWarehouse: Warehouseable, WarehouseCacheable {
         return writeDirectory
     }
     
-    func cacheFileURL() -> URL {
-        let cacheDirectory = JSONWarehouse.cacheDirectory
+    static var legacyCacheDirectory: URL {
+        let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        
+        let writeDirectory = url.appendingPathComponent("com.thatthinginswift.pantry")
+        return writeDirectory
+    }
+    
+    func cacheFileURL(_ useLegacy: Bool = false) -> URL {
+        let cacheDirectory = useLegacy ? JSONWarehouse.legacyCacheDirectory : JSONWarehouse.cacheDirectory
 
         let cacheLocation = cacheDirectory.appendingPathComponent(self.key)
 
